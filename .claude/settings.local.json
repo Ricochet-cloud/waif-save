@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m http.server 8000)",
+      "Bash(curl -s http://localhost:8000/jump-survive.html)",
+      "Bash(grep -E '\\\\.\\(html|md|js|png\\)$')",
+      "Bash(awk '{printf \"%-40s %8s\\\\n\", $9, $5}')",
+      "Bash(grep -E '\\\\.\\(html|md|png|js\\)$')"
+    ]
+  }
+}

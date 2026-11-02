@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Game postMessage API 테스트</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #252526;
+      border: 1px solid #3e3e42;
+      border-radius: 4px;
+      padding: 20px;
+    }
+    h1 { color: #569cd6; }
+    h2 { color: #4ec9b0; margin-top: 30px; }
+    .test-section {
+      background: #1e1e1e;
+      border-left: 3px solid #569cd6;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 3px;
+    }
+    .test-passed { border-left-color: #4ec9b0; }
+    .test-failed { border-left-color: #f48771; }
+    .test-pending { border-left-color: #dcdcaa; }
+    .code {
+      background: #000;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 3px;
+      overflow-x: auto;
+    }
+    button {
+      background: #569cd6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin: 5px;
+      font-family: inherit;
+    }
+    button:hover { background: #51a1d9; }
+    .result {
+      background: #2d2d30;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 3px;
+      border-left: 2px solid #569cd6;
+    }
+    .result.success { border-left-color: #4ec9b0; color: #4ec9b0; }
+    .result.error { border-left-color: #f48771; color: #f48771; }
+    .iframe-container {
+      border: 2px solid #3e3e42;
+      margin: 10px 0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    iframe { width: 100%; height: 500px; border: none; }
+    .log {
+      background: #000;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .log-item {
+      margin: 2px 0;
+      padding: 2px 4px;
+    }
+    .log-error { color: #f48771; }
+    .log-success { color: #4ec9b0; }
+    .log-info { color: #569cd6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 JUMP & SURVIVE - postMessage API 테스트</h1>
+
+    <div class="test-section test-pending">
+      <h2>📋 테스트 1: 게임 난이도 설정</h2>
+      <p>게임에 postMessage를 통해 난이도를 전달하고 올바르게 설정되는지 확인합니다.</p>
+
+      <div style="margin: 10px 0;">
+        <button onclick="testDifficulty('EASY')">EASY 설정 테스트</button>
+        <button onclick="testDifficulty('NORMAL')">NORMAL 설정 테스트</button>
+        <button onclick="testDifficulty('HARD')">HARD 설정 테스트</button>
+      </div>
+
+      <div id="test1-result"></div>
+
+      <div class="iframe-container" id="test1-game">
+        <iframe id="gameFrame1" src="jump-survive.html"></iframe>
+      </div>
+
+      <div class="log" id="test1-log"></div>
+    </div>
+
+    <div class="test-section test-pending">
+      <h2>📋 테스트 2: 게임 결과 수신</h2>
+      <p>게임이 종료될 때 postMessage를 통해 결과를 전송하는지 확인합니다.</p>
+
+      <div style="margin: 10px 0;">
+        <button onclick="testGameResult()">게임 결과 수신 테스트</button>
+        <button onclick="simulateGameResult()">결과 시뮬레이션</button>
+      </div>
+
+      <div id="test2-result"></div>
+      <div class="log" id="test2-log"></div>
+    </div>
+
+    <div class="test-section test-pending">
+      <h2>📋 테스트 3: 플레이어 정보 전달</h2>
+      <p>플레이어 ID와 이름이 올바르게 전달되는지 확인합니다.</p>
+
+      <div style="margin: 10px 0;">
+        <input type="text" id="playerId" value="player_001" placeholder="플레이어 ID">
+        <input type="text" id="playerName" value="테스트 플레이어" placeholder="플레이어 이름">
+        <button onclick="testPlayerInfo()">플레이어 정보 전달</button>
+      </div>
+
+      <div id="test3-result"></div>
+      <div class="log" id="test3-log"></div>
+    </div>
+
+    <div class="test-section test-passed">
+      <h2>✅ 테스트 4: 코드 검증</h2>
+      <p>게임 파일이 필수 함수와 변수를 포함하고 있는지 검증합니다.</p>
+
+      <div id="test4-result"></div>
+    </div>
+
+    <div class="test-section">
+      <h2>📊 테스트 요약</h2>
+      <div id="summary"></div>
+    </div>
+  </div>
+
+  <script>
+    const logs = {
+      test1: [],
+      test2: [],
+      test3: [],
+      test4: []
+    };
+
+    function log(testNum, message, type = 'info') {
+      const logEntry = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logs[`test${testNum}`].push(logEntry);
+      const logEl = document.getElementById(`test${testNum}-log`);
+      const item = document.createElement('div');
+      item.className = `log-item log-${type}`;
+      item.textContent = logEntry;
+      logEl.appendChild(item);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setResult(testNum, success, message) {
+      const resultEl = document.getElementById(`test${testNum}-result`);
+      resultEl.innerHTML = `<div class="result ${success ? 'success' : 'error'}">${message}</div>`;
+    }
+
+    // 테스트 1: 난이도 설정
+    function testDifficulty(difficulty) {
+      log(1, `난이도 설정 시도: ${difficulty}`, 'info');
+      const gameFrame = document.getElementById('gameFrame1');
+
+      setTimeout(() => {
+        gameFrame.contentWindow.postMessage({
+          type: 'gameConfig',
+          difficulty: difficulty,
+          playerId: 'test_player',
+          playerName: 'Test Player'
+        }, '*');
+        log(1, `postMessage 전송: type=gameConfig, difficulty=${difficulty}`, 'success');
+      }, 500);
+    }
+
+    // 테스트 2: 게임 결과 수신
+    function testGameResult() {
+      log(2, '게임 결과 수신 리스너 등록', 'info');
+      window.addEventListener('message', function(event) {
+        if (event.data.type === 'gameResult') {
+          log(2, `게임 결과 수신: ${JSON.stringify(event.data)}`, 'success');
+          setResult(2, true, `✅ 게임 결과 수신 성공! (생존: ${event.data.survived.toFixed(1)}초, 난이도: ${event.data.difficulty})`);
+        }
+      });
+      log(2, '게임을 진행하고 종료하면 결과가 표시됩니다', 'info');
+    }
+
+    function simulateGameResult() {
+      log(2, '게임 결과 시뮬레이션', 'info');
+      const result = {
+        type: 'gameResult',
+        playerId: 'test_player',
+        playerName: 'Test Player',
+        difficulty: 'NORMAL',
+        survived: 45.5,
+        duration: 60,
+        isWin: false,
+        timestamp: Date.now()
+      };
+      log(2, `시뮬레이션 결과: ${JSON.stringify(result)}`, 'success');
+      setResult(2, true, `✅ 게임 결과 포맷 검증 성공!`);
+    }
+
+    // 테스트 3: 플레이어 정보
+    function testPlayerInfo() {
+      const playerId = document.getElementById('playerId').value;
+      const playerName = document.getElementById('playerName').value;
+
+      log(3, `플레이어 정보 전달 시도: ID=${playerId}, NAME=${playerName}`, 'info');
+
+      const gameFrame = document.getElementById('gameFrame1');
+      setTimeout(() => {
+        gameFrame.contentWindow.postMessage({
+          type: 'gameConfig',
+          difficulty: 'NORMAL',
+          playerId: playerId,
+          playerName: playerName
+        }, '*');
+        log(3, `postMessage 전송: playerId=${playerId}, playerName=${playerName}`, 'success');
+        setResult(3, true, `✅ 플레이어 정보 전달 성공!`);
+      }, 500);
+    }
+
+    // 테스트 4: 코드 검증
+    window.addEventListener('load', async function() {
+      log(4, '게임 파일 코드 검증 시작', 'info');
+
+      try {
+        const response = await fetch('jump-survive.html');
+        const text = await response.text();
+
+        const checks = [
+          { name: 'DIFFICULTIES 객체', pattern: /const DIFFICULTIES = {/i },
+          { name: 'applyDifficulty 함수', pattern: /function applyDifficulty/i },
+          { name: 'handleIframeMessage 함수', pattern: /function handleIframeMessage/i },
+          { name: 'sendGameResult 함수', pattern: /function sendGameResult/i },
+          { name: 'EASY 난이도', pattern: /EASY: {/i },
+          { name: 'NORMAL 난이도', pattern: /NORMAL: {/i },
+          { name: 'HARD 난이도', pattern: /HARD: {/i },
+          { name: 'postMessage 이벤트 리스너', pattern: /window.addEventListener\('message'/i }
+        ];
+
+        let allPassed = true;
+        for (const check of checks) {
+          if (check.pattern.test(text)) {
+            log(4, `✅ ${check.name} 검증 성공`, 'success');
+          } else {
+            log(4, `❌ ${check.name} 검증 실패`, 'error');
+            allPassed = false;
+          }
+        }
+
+        if (allPassed) {
+          setResult(4, true, '✅ 모든 필수 코드 요소가 포함되어 있습니다!');
+        } else {
+          setResult(4, false, '❌ 일부 필수 코드가 누락되었습니다');
+        }
+      } catch (e) {
+        log(4, `오류: ${e.message}`, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>게임 임베드 - 기본 예제</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-top: 0; }
+    .game-wrapper {
+      width: 100%;
+      max-width: 800px;
+      margin: 20px 0;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    iframe {
+      width: 100%;
+      height: 500px;
+      border: none;
+      display: block;
+    }
+    .info {
+      background: #e8f4f8;
+      padding: 15px;
+      border-left: 4px solid #0288d1;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .difficulty-selector {
+      margin: 20px 0;
+    }
+    .difficulty-selector label {
+      display: inline-block;
+      margin-right: 15px;
+      font-weight: bold;
+    }
+    .difficulty-selector select {
+      padding: 8px 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 점프&서바이브 - 게임 임베드 예제</h1>
+
+    <div class="info">
+      <strong>ℹ️ 설명:</strong>
+      이 페이지는 JUMP & SURVIVE 게임을 iframe으로 임베드하는 기본 예제입니다.
+      난이도를 선택하고 게임을 플레이할 수 있습니다.
+    </div>
+
+    <div class="difficulty-selector">
+      <label for="difficulty">난이도 선택:</label>
+      <select id="difficulty" onchange="changeDifficulty()">
+        <option value="EASY">EASY - 초보자 친화적</option>
+        <option value="NORMAL" selected>NORMAL - 표준 (기본값)</option>
+        <option value="HARD">HARD - 도전적</option>
+      </select>
+    </div>
+
+    <div class="game-wrapper">
+      <iframe
+        id="gameFrame"
+        src="jump-survive.html"
+        allow="fullscreen"
+        loading="lazy">
+      </iframe>
+    </div>
+
+    <div class="info">
+      <strong>📝 사용 방법:</strong>
+      <ul>
+        <li>난이도를 선택하면 게임이 그 난이도로 시작됩니다</li>
+        <li>게임 결과는 브라우저 콘솔에 나타납니다 (F12 열기)</li>
+        <li>실제 운영 환경에서는 서버에 결과를 검증하고 저장해야 합니다</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const gameFrame = document.getElementById('gameFrame');
+    const difficultySelect = document.getElementById('difficulty');
+
+    function changeDifficulty() {
+      const difficulty = difficultySelect.value;
+      // 게임이 로드되었는지 확인하고 난이도 설정 전송
+      gameFrame.onload = function() {
+        gameFrame.contentWindow.postMessage({
+          type: 'gameConfig',
+          difficulty: difficulty,
+          playerId: null,
+          playerName: null
+        }, '*');
+      };
+
+      // 게임이 이미 로드되었을 수 있으므로 즉시 전송도 시도
+      setTimeout(() => {
+        gameFrame.contentWindow.postMessage({
+          type: 'gameConfig',
+          difficulty: difficulty,
+          playerId: null,
+          playerName: null
+        }, '*');
+      }, 100);
+    }
+
+    // 게임 결과 수신
+    window.addEventListener('message', function(event) {
+      if (event.data.type === 'gameResult') {
+        console.log('📊 게임 결과:', event.data);
+        alert(`게임 종료!\n난이도: ${event.data.difficulty}\n생존 시간: ${event.data.survived.toFixed(1)}초\n성공: ${event.data.isWin ? '✅ YES' : '❌ NO'}`);
+      }
+    });
+
+    // 페이지 로드 시 기본 난이도 설정
+    window.addEventListener('load', function() {
+      changeDifficulty();
+    });
+  </script>
+</body>
+</html>
