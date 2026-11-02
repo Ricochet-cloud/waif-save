@@ -1,0 +1,116 @@
+From 432f7b636916ea04d25968c4ba8fee868d9a263d Mon Sep 17 00:00:00 2001
+From: claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 11:24:38 +0900
+Subject: [PATCH] =?UTF-8?q?iframe=20=EC=97=B0=EB=8F=99=20=EC=88=98?=
+ =?UTF-8?q?=EC=A0=95:=20=EA=B0=99=EC=9D=80=20=EC=B6=9C=EC=B2=98=20?=
+ =?UTF-8?q?=ED=97=88=EC=9A=A9,=20=3Fd=3D=20=EB=82=9C=EC=9D=B4=EB=8F=84,=20?=
+ =?UTF-8?q?=EB=82=9C=EC=9D=B4=EB=8F=84=EB=B3=84=20BEST,=20=EA=B2=B0?=
+ =?UTF-8?q?=EA=B3=BC=20=EC=A0=84=EC=86=A1=20=EC=B6=9C=EC=B2=98=20=EC=A0=9C?=
+ =?UTF-8?q?=ED=95=9C?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NaRW9aR38ZugwWnH7B62Mr
+---
+ jump-survive.html | 35 +++++++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/jump-survive.html b/jump-survive.html
+index c3007dc..8673512 100644
+--- a/jump-survive.html
++++ b/jump-survive.html
+@@ -50,8 +50,16 @@ const DIFFICULTIES = {
+   }
+ };
+ 
+-// 기본값은 NORMAL, iframe에서 덮어쓸 수 있음
++// 기본값은 NORMAL, 주소(?d=HARD) 또는 iframe 메시지로 바꿀 수 있음
+ let currentDifficulty = 'NORMAL';
++let best = 0;   // 난이도별 최고 기록 (저장 키: js_best_난이도)
++function loadBest() {
++  best = 0;
++  try { best = parseFloat(localStorage.getItem('js_best_' + currentDifficulty)) || 0; } catch (e) {}
++}
++function saveBest() {
++  try { localStorage.setItem('js_best_' + currentDifficulty, best); } catch (e) {}
++}
+ let DURATION, GRAVITY, JUMP_V, BASE_SPEED, SPEED_UP, SPAWN_START, SPAWN_MIN;
+ 
+ function applyDifficulty(difficulty) {
+@@ -63,18 +71,21 @@ function applyDifficulty(difficulty) {
+   SPEED_UP = diff.speedUp;
+   SPAWN_START = diff.spawnStart;
+   SPAWN_MIN = diff.spawnMin;
+-  currentDifficulty = difficulty;
++  currentDifficulty = DIFFICULTIES[difficulty] ? difficulty : 'NORMAL';
++  loadBest();
+ }
+ 
+ // iframe으로부터 메시지 받을 때 난이도 변경
+-const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:8000', 'file://'];
++// 같은 사이트(같은 origin)의 부모 페이지가 보낸 메시지만 받아요.
+ let externalPlayerId = null;
+ let externalPlayerName = null;
+ 
+ function handleIframeMessage(event) {
+-  if (!ALLOWED_ORIGINS.includes(event.origin) && !event.origin.startsWith('file://')) return;
++  if (event.source !== window.parent || event.origin !== location.origin) return;
+   const msg = event.data;
+-  if (msg.type === 'gameConfig' && msg.difficulty) {
++  if (!msg || typeof msg !== 'object') return;
++  if (state === 'play') return;   // 플레이 도중에는 난이도를 바꾸지 않아요
++  if (msg.type === 'gameConfig' && DIFFICULTIES[msg.difficulty]) {
+     applyDifficulty(msg.difficulty);
+     if (msg.playerId) externalPlayerId = msg.playerId;
+     if (msg.playerName) externalPlayerName = msg.playerName;
+@@ -82,8 +93,9 @@ function handleIframeMessage(event) {
+ }
+ window.addEventListener('message', handleIframeMessage);
+ 
+-// 초기 난이도 적용
+-applyDifficulty('NORMAL');
++// 초기 난이도: 주소의 ?d=EASY | NORMAL | HARD (없거나 틀리면 NORMAL)
++const queryDifficulty = (new URLSearchParams(location.search).get('d') || '').toUpperCase();
++applyDifficulty(queryDifficulty);
+ 
+ // ===== 기본 세팅 =====
+ const cv = document.getElementById('c');
+@@ -118,8 +130,6 @@ function spriteC(a, f, cx, cy) {
+ 
+ let state = 'ready';
+ let t, player, shots, boss, spawnTimer, scroll, particles, shake;
+-let best = 0;
+-try { best = parseFloat(localStorage.getItem('js_best')) || 0; } catch (e) {}
+ 
+ function reset() {
+   t = 0; scroll = 0; spawnTimer = 1.0; shake = 0;
+@@ -249,12 +259,12 @@ function update(dt) {
+ function die() {
+   state = 'dead'; endAt = Date.now(); shake = .3;
+   burst(PX, player.y + 30, 24, '#ff6b81');
+-  if (t > best) { best = t; try { localStorage.setItem('js_best', best); } catch (e) {} }
++  if (t > best) { best = t; saveBest(); }
+   sendGameResult(false);
+ }
+ function win() {
+   state = 'win'; endAt = Date.now(); t = DURATION;
+-  best = DURATION; try { localStorage.setItem('js_best', best); } catch (e) {}
++  best = DURATION; saveBest();
+   for (let i = 0; i < 40; i++) burst(rnd(100, 700), rnd(50, 250), 1, ['#ffd166', '#06d6a0', '#ef476f', '#8ecae6'][i % 4]);
+   sendGameResult(true);
+ }
+@@ -272,7 +282,8 @@ function sendGameResult(isWin) {
+   };
+   // iframe 모드일 때만 부모에게 전송 (단독 실행 모드에서는 무해함)
+   if (window.parent !== window) {
+-    window.parent.postMessage(result, '*');
++    // file:// 로 열면 origin 이 'null' 이라 대상 지정이 안 돼서 '*' 를 써요
++    window.parent.postMessage(result, location.origin === 'null' ? '*' : location.origin);
+   }
+ }
+ 
+-- 
+2.43.0
+
